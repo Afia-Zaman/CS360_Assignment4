@@ -11,52 +11,59 @@ Answer:
 
 #include <iostream>
 #include <cstring>
+#include <algorithm>
+using namespace std;
 
 class HugeInteger {
 private:
-    int digits[40];
-    
+    static const int SIZE = 40;
+    int digits[SIZE];
+
 public:
     HugeInteger() {
-        memset(digits, 0, sizeof(digits));
+        
+        std::fill(digits, digits + SIZE, 0);
     }
 
-    void input(const std::string& number) {
-        memset(digits, 0, sizeof(digits));
-        int length = number.length();
+    void input(const char* number) {
+        int length = strlen(number);
+        int start = SIZE - length;
         for (int i = 0; i < length; ++i) {
-            digits[39 - i] = number[length - 1 - i] - '0';
+            digits[start++] = number[i] - '0';
         }
     }
 
-    void output() {
+    void output() const {
         int i = 0;
-        while (i < 40 && digits[i] == 0) ++i; // Skip leading zeros
-        if (i == 40) std::cout << '0'; // Handle zero
-        for (; i < 40; ++i) {
-            std::cout << digits[i];
+        while (i < SIZE && digits[i] == 0) {
+            ++i;
+        }
+        if (i == SIZE) {
+            std::cout << "0";
+        } else {
+            while (i < SIZE) {
+                std::cout << digits[i++];
+            }
         }
         std::cout << std::endl;
     }
 
-    // Basic addition - does not handle overflow
-    HugeInteger add(HugeInteger& other) {
+    HugeInteger add(const HugeInteger& other) const {
         HugeInteger result;
         int carry = 0;
-        for (int i = 39; i >= 0; --i) {
-            int sum = this->digits[i] + other.digits[i] + carry;
+        for (int i = SIZE - 1; i >= 0; --i) {
+            int sum = digits[i] + other.digits[i] + carry;
             result.digits[i] = sum % 10;
             carry = sum / 10;
         }
         return result;
     }
 
-    // Basic subtraction - does not handle negative results
-    HugeInteger subtract(HugeInteger& other) {
+    HugeInteger subtract(const HugeInteger& other) const {
         HugeInteger result;
         int borrow = 0;
-        for (int i = 39; i >= 0; --i) {
-            int diff = this->digits[i] - other.digits[i] - borrow;
+        for (int i = SIZE - 1; i >= 0; --i) {
+            int diff = digits[i] - other.digits[i] - borrow;
             if (diff < 0) {
                 diff += 10;
                 borrow = 1;
@@ -68,61 +75,117 @@ public:
         return result;
     }
 
-    // Predicate functions
-    bool isEqualTo(HugeInteger& other) {
-        for (int i = 0; i < 40; ++i) {
-            if (this->digits[i] != other.digits[i]) return false;
-        }
-        return true;
+    bool isEqualTo(const HugeInteger& other) const {
+        return std::equal(digits, digits + SIZE, other.digits);
     }
 
-    bool isNotEqualTo(HugeInteger& other) {
+    bool isNotEqualTo(const HugeInteger& other) const {
         return !isEqualTo(other);
     }
 
-    bool isGreaterThan(HugeInteger& other) {
-        for (int i = 0; i < 40; ++i) {
-            if (this->digits[i] > other.digits[i]) return true;
-            if (this->digits[i] < other.digits[i]) return false;
+    bool isGreaterThan(const HugeInteger& other) const {
+        return std::lexicographical_compare(digits, digits + SIZE, other.digits, other.digits + SIZE);
+    }
+
+    bool isLessThan(const HugeInteger& other) const {
+        return other.isGreaterThan(*this);
+    }
+
+    bool isGreaterThanOrEqualTo(const HugeInteger& other) const {
+        return !isLessThan(other);
+    }
+
+    bool isLessThanOrEqualTo(const HugeInteger& other) const {
+        return !isGreaterThan(other);
+    }
+
+    bool isZero() const {
+        return std::all_of(digits, digits + SIZE, [](int digit) { return digit == 0; });
+    }
+
+    HugeInteger multiply(const HugeInteger& other) const {
+        HugeInteger result;
+        HugeInteger temp;
+        for (int i = SIZE - 1; i >= 0; --i) {
+            int carry = 0;
+            for (int j = SIZE - 1; j >= 0; --j) {
+                int product = digits[i] * other.digits[j] + carry;
+                temp.digits[j] = product % 10;
+                carry = product / 10;
+            }
+            temp = shiftLeft(temp, SIZE - 1 - i);
+            result = result.add(temp);
         }
-        return false;
+        return result;
     }
 
-    bool isLessThan(HugeInteger& other) {
-        return !isGreaterThan(other) && isNotEqualTo(other);
-    }
 
-    bool isGreaterThanOrEqualTo(HugeInteger& other) {
-        return isGreaterThan(other) || isEqualTo(other);
+private:
+    HugeInteger shiftLeft(const HugeInteger& num, int places) const {
+        HugeInteger result;
+        std::copy(num.digits + places, num.digits + SIZE, result.digits);
+        std::fill(result.digits + SIZE - places, result.digits + SIZE, 0);
+        return result;
     }
-
-    bool isLessThanOrEqualTo(HugeInteger& other) {
-        return isLessThan(other) || isEqualTo(other);
-    }
-
-    bool isZero() {
-        for (int i = 0; i < 40; ++i) {
-            if (digits[i] != 0) return false;
-        }
-        return true;
-    }
-
-    // Multiply, divide and modulus functions can be quite complex and are left as an exercise
 };
 
 int main() {
-    // Example usage
-    HugeInteger num1, num2, result;
+HugeInteger num1, num2, result;
     num1.input("1234567890123456789012345678901234567890");
     num2.input("9876543210987654321098765432109876543210");
 
     result = num1.add(num2);
-    result.output(); // Outputs result of addition
+    cout << "Addition: ";
+    result.output(); 
+    
+    result = num1.subtract(num2);
+    cout << "subtraction: ";
+    result.output();
+    
+    if (num1.isEqualTo(num2)) {
+        std::cout << "Numbers are equal" << std::endl;
+    } else {
+        std::cout << "Numbers are not equal" << std::endl;
+    }
+    
+    if (num1.isGreaterThan(num2)){
+        std::cout << "Num2 is greater than num1 " << std::endl;
+    } else {
+        std::cout << "Num2 is not greater than num1 " << std::endl;
+    }
+    
+    if (num1.isLessThan(num2)){
+        std::cout << "Num2 is less than num1 " << std::endl;
+    } else {
+        std::cout << "Num1 is not less than num2 " << std::endl;
+    }
+    if (num1.isGreaterThanOrEqualTo(num2)){
+        std::cout << "Num1 is not greater than or equal to num2 " << std::endl;
+    } else {
+        std::cout << "Num1 is greater than or equal to num2  " << std::endl;
+    }
+    
+    if (num1.isLessThanOrEqualTo(num2)){
+        std::cout << "Num2 is less than or equal to num1 " << std::endl;
+    } else {
+        std::cout << "Num2 is not less than or equal to num1  " << std::endl;
+    } 
+    
+    result = num1.multiply(num2);
+    std::cout << "Multiplication result: ";
+    result.output();
 
-    // Other operations can be tested similarly
     return 0;
 }
 
+
 // Output -
-// 1111111101111111110111111111011111111100
+// Addition: 1111111101111111110111111111011111111100
+// subtraction: 1358024679135802467913580246791358024680
+// Numbers are not equal
+// Num2 is greater than num1 
+// Num1 is not less than num2 
+// Num1 is not greater than or equal to num2 
+// Num2 is not less than or equal to num1  
+// Multiplication result: 8712086533622923332237463801111263526900
 
